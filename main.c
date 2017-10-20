@@ -4,7 +4,6 @@
 #include <string.h>
 #include <wchar.h>
 #include <assert.h>
-#include <locale.h>
 #include <gtk/gtk.h>
 #include <windows.h>
 #include "parseur.h"
@@ -48,10 +47,13 @@ int main(int argc, char *argv[]) {
 	gtk_entry_set_max_length(GTK_ENTRY(entries), 0);
 	gtk_container_add(GTK_CONTAINER(vbox), entries);
 
+	/*Create a progressbar and add it to te window*/
+	pProgress = gtk_progress_bar_new();
+	gtk_container_add(GTK_CONTAINER(vbox), pProgress);
+
 	pButtonOk = gtk_button_new_with_label("OK");
 	g_signal_connect_swapped(pButtonOk, "clicked", G_CALLBACK(secondWindow), entries);
 	gtk_container_add(GTK_CONTAINER(vbox), pButtonOk);
-
 
 	/****************/
 	/*** MAIN LOOP **/

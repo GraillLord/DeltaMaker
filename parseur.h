@@ -4,7 +4,6 @@
 #include <string.h>
 #include <wchar.h>
 #include <assert.h>
-#include <locale.h>
 #include <gtk/gtk.h>
 #include <windows.h>
 
@@ -23,17 +22,13 @@ GtkWidget *entries;
 /*** STRUCTURES ***/
 /******************/
 
-typedef struct data_str data_str;
 typedef struct elems_str elems_str;
 typedef struct entries_str entries_str;
 
-struct data_str {
-	wchar_t colon[200];
-};
-
 struct elems_str {
-	wchar_t prm[50];
-	data_str rest[];
+	wchar_t prm[15];
+	wchar_t name[40];
+	wchar_t rest[500];
 };
 
 struct entries_str {
@@ -47,7 +42,6 @@ struct entries_str {
 /*** PROTOTYPES ***/
 /******************/
 
-int file_size(FILE *);
 char *get_filename_ext(const char *);
 const char *verify_filename_ext(const char *, const char *, const char *);
 void chopN(wchar_t *, size_t);
@@ -56,10 +50,15 @@ GtkWidget *AddBtn(char *);
 void alertDialog(char *);
 void fileChooserDialog(GtkWidget *, gpointer);
 //
+int file_lines(FILE *);
 void store_elems(FILE *, elems_str *);
+void get_through_file(FILE *, long, char);
+bool is_line_different(FILE *, FILE *, long, long);
 void compare_elems(FILE *, elems_str *, elems_str *);
 //
 void *secondWindow();
 DWORD WINAPI delta(void *);
 gboolean fill();
+//
+void free_str(elems_str **, int);
 void refresh_all();

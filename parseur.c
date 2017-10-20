@@ -14,6 +14,7 @@
 /**************************/
 
 static GtkWidget *SndWindow;
+static const wchar_t *inconnu = L"INCONNU";
 
 FILE *fichier_s1 = NULL;
 FILE *fichier_s2 = NULL;
@@ -25,7 +26,7 @@ elems_str *elems_tab2 = NULL;
 wchar_t title[700];
 wchar_t sep = L'\u25B2';
 //
-char *data[3] = { NULL, NULL, NULL };
+char *data[3] = { 0 };
 char *file_s1 = NULL;
 char *file_s2 = NULL;
 //
@@ -34,29 +35,10 @@ gdouble dfrac = 0.0;
 //
 unsigned int size_s1 = 0;
 unsigned int size_s2 = 0;
-int max_sep = 0;
 int result = 0;
 int num = 0;
-bool isEnded = FALSE;
 bool is2nd = FALSE;
-
-int file_size(FILE* fichier) {
-	bool is1stLine = TRUE;
-	int i = 1;
-	wchar_t c;
-
-	while((c = fgetwc(fichier)) != WEOF) {
-		if(is1stLine && c == 226)
-			max_sep++;
-		if(c == 10) {
-			is1stLine = FALSE;
-			i++;
-		}
-	}
-	rewind(fichier);
-
-	return i;
-}
+bool isEnded = FALSE;
 
 char* get_filename_ext(const char *filename) {
 	char *dot = strrchr(filename, '.');
@@ -84,8 +66,21 @@ void chopN(wchar_t *str, size_t n) {
 	assert(n != 0 && str != 0);
 	size_t len = wcslen(str);
 	if(n > len)
-		return; // or: n = len;
+		n = len;
 	wmemmove(str, str+n, len-n+1);
+}
+
+int file_size(FILE *fichier) {
+	int l = 0;
+	wchar_t c;
+
+	while((c = fgetwc(fichier)) != WEOF) {
+		if(c == 10)
+			l++;
+	}
+	rewind(fichier);
+
+	return l;
 }
 
 void store_elems(FILE* fichier, elems_str* tab) {
@@ -94,7 +89,7 @@ void store_elems(FILE* fichier, elems_str* tab) {
 	bool is1stLine = TRUE;
 	wchar_t c;
 
-	while((c = fgetwc(fichier)) != 	WEOF) {
+	while((c = fgetwc(fichier)) != WEOF) {
 		if(is1stLine) {
 			if(c == 10) {
 				is1stLine = false;
@@ -113,20 +108,27 @@ void store_elems(FILE* fichier, elems_str* tab) {
 		}
 		else if(c != 178 && c != 8211) {
 			if(c == 10) {
-				j++;
 				isComa = 0;
 				i = 0;
+				j++;
 			}
 			else if(c == 226) {
-				isComa++;
-				i = 0;
+				isComa++;	
+				if(isComa == 1)
+					i = 0;
+				else {
+					tab[j].rest[i] = L'\u25B2';
+					i++;
+				}
 			}
-			else if((c != 226 && !is1stLine) && isComa <= 0) {
+			else if((c != 226 && !is1stLine) && isComa == 6)
+				tab[j].name[i] = c;
+			else if((c != 226 && !is1stLine) && isComa == 0) {
 				tab[j].prm[i] = c;
 				i++;
 			}
 			else if((c != 226 && !is1stLine) && isComa > 0) {
-				tab[j].rest[isComa-1].colon[i] = c;
+				tab[j].rest[i] = c;
 				i++;
 			}
 		}
@@ -135,9 +137,8 @@ void store_elems(FILE* fichier, elems_str* tab) {
 
 void compare_elems(FILE* fichier_a, elems_str* tab1, elems_str* tab2) {
 	/* variables */
-	int l;
 	unsigned int i, j, k = 0;
-	bool isSame, will_break;
+	bool isSame;
 
 	while(title[k] > 127)
 		k++;
@@ -149,47 +150,26 @@ void compare_elems(FILE* fichier_a, elems_str* tab1, elems_str* tab2) {
 	for(i=0; i<size_s1; i++, k++) {
 		isSame = false;
 		for(j=0; j<size_s2; j++) {
-			if(wcscmp(tab1[i].prm, tab2[j].prm) == 0) {
+			if(wcscmp(tab1[i].prm, tab2[j].prm) == 0)
 				isSame = TRUE;
-				break;
-			}
 		}
-		if(!isSame) {
-			fwprintf(fichier_a, L"%s\u25B2", tab1[i].prm);
-			for(l=0; l<max_sep; l++)
-				fwprintf(fichier_a, L"%s\u25B2", tab1[i].rest[l].colon);
-			fwprintf(fichier_a, L"R\n");
-		}
+		if(!isSame)
+			fwprintf(fichier_a, L"%s\u25B2%s\u25B2R\n", tab1[i].prm, tab1[i].rest);
 		dfrac = (gdouble)k;
 	}
 	for(i=0; i<size_s2; i++, k++) {
 		isSame = FALSE;
 		for(j=0; j<size_s1; j++) {
 			if(wcscmp(tab2[i].prm, tab1[j].prm) == 0) {
+				if(wcscmp(tab2[i].name, inconnu) == 0)
+					fwprintf(fichier_a, L"%s\u25B2%s\u25B2R\n", tab2[i].prm, tab2[i].rest);
+				else if(wcscmp(tab2[i].rest, tab1[j].rest) != 0)
+					fwprintf(fichier_a, L"%s\u25B2%s\u25B2M\n", tab2[i].prm, tab2[i].rest);
 				isSame = TRUE;
-				will_break = FALSE;
-				for(l=0; l<max_sep; l++) {
-					if(wcscmp(tab2[i].rest[l].colon, tab1[j].rest[l].colon) != 0) {
-						fwprintf(fichier_a, L"%s\u25B2", tab2[i].prm);
-						for(l=0; l<max_sep; l++)
-							fwprintf(fichier_a, L"%s\u25B2", tab2[i].rest[l].colon);
-						fwprintf(fichier_a, L"M\n");
-						will_break = TRUE;
-						break;
-					}
-				}
-				if(will_break)
-					break;
 			}
 		}
-		if(!isSame) {
-			fwprintf(fichier_a, L"%s\u25B2", tab2[i].prm);
-			for(l=0; l<max_sep; l++) {
-				fwprintf(fichier_a, L"%s\u25B2", tab2[i].rest[l].colon);
-			}
-			fwprintf(fichier_a, L"S\n");
-			break;
-		}
+		if(!isSame)
+			fwprintf(fichier_a, L"%s\u25B2%s\u25B2S\n", tab2[i].prm, tab2[i].rest);
 		dfrac = (gdouble)k;
 	}
 	dfrac = max;
@@ -243,43 +223,46 @@ void fileChooserDialog(GtkWidget *pWindow, gpointer gp) {
 	GtkWidget *pDialog;
 	gint res;
 
+	if(pWindow != NULL) {
 	/* creation dialog */
-	GtkFileChooserAction action = GTK_FILE_CHOOSER_ACTION_OPEN;
-	pDialog = gtk_file_chooser_dialog_new("Ouvrir fichier", 
-		NULL, action,
-		GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL, 
-		GTK_STOCK_OPEN, GTK_RESPONSE_ACCEPT, 
-		NULL);
+		GtkFileChooserAction action = GTK_FILE_CHOOSER_ACTION_OPEN;
+		pDialog = gtk_file_chooser_dialog_new("Ouvrir fichier", 
+			NULL, action,
+			GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL, 
+			GTK_STOCK_OPEN, GTK_RESPONSE_ACCEPT, 
+			NULL);
 
-	res = gtk_dialog_run(GTK_DIALOG(pDialog));
+		res = gtk_dialog_run(GTK_DIALOG(pDialog));
 
 	/* action quand clique sur ouvrir */
-	if(res == GTK_RESPONSE_ACCEPT) {
-		GtkFileChooser *chooser = GTK_FILE_CHOOSER(pDialog);
-		if(val == 1) {
-			file_s1 = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(chooser));
-			gtk_button_set_label(GTK_BUTTON(pButtonF1), file_s1);
+		if(res == GTK_RESPONSE_ACCEPT) {
+			GtkFileChooser *chooser = GTK_FILE_CHOOSER(pDialog);
+			if(val == 1) {
+				file_s1 = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(chooser));
+				gtk_button_set_label(GTK_BUTTON(pButtonF1), file_s1);
+			}
+			else {
+				file_s2 = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(chooser));
+				gtk_button_set_label(GTK_BUTTON(pButtonF2), file_s2);
+			}
 		}
-		else {
-			file_s2 = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(chooser));
-			gtk_button_set_label(GTK_BUTTON(pButtonF2), file_s2);
-		}
+		gtk_widget_destroy(pDialog);
 	}
-	gtk_widget_destroy(pDialog);
 }
 
 void *secondWindow() {
 	/* variables */
 	iconname = "icons/delta.jpg";
+	HANDLE thread;
 	DWORD exitthread;
 	char err[80];
 
-	/* création du thread */
-	HANDLE thread = CreateThread(NULL, 0, (void*)delta, NULL, 0, 0);
-	GetExitCodeThread(thread, &exitthread);
-
 	/* Use the created fill function every 500 milliseconds */
 	g_timeout_add(500, fill, GTK_PROGRESS_BAR(pProgress));
+
+	/* creation of the thread */
+	thread = CreateThread(NULL, 0, (void*)delta, NULL, 0, 0);
+	GetExitCodeThread(thread, &exitthread);
 
 	while(!isEnded && exitthread == STILL_ACTIVE) {
 		if(gtk_events_pending()) 
@@ -320,35 +303,6 @@ void *secondWindow() {
 		return NULL;
 	}
 
-	/******************/
-	/*** 2ND WINDOW ***/
-	/******************/
-
-	/* Création 2nd fenetre */
-	SndWindow = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-	gtk_window_set_title(GTK_WINDOW(SndWindow), "chargement");
-	gtk_window_set_icon_from_file(GTK_WINDOW(SndWindow), iconname, NULL);
-	gtk_window_set_default_size(GTK_WINDOW(SndWindow), 480, 300);
-	g_signal_connect(G_OBJECT(SndWindow), "delete-event", G_CALLBACK(gtk_widget_destroy), SndWindow);
-
-	/* insertion buttons/labels 2st window */
-	GtkWidget *pButtonCancel;
-	GtkWidget *v2box = gtk_vbox_new(10, 50);
-	gtk_container_add(GTK_CONTAINER(SndWindow), v2box);
-	GtkWidget *h2box = gtk_hbox_new(0, 0);
-	gtk_container_add(GTK_CONTAINER(v2box), h2box);
-
-	/*Create a progressbar and add it to the window*/
-	pProgress = gtk_progress_bar_new();
-	gtk_container_add(GTK_CONTAINER(v2box), pProgress);
-
-	pButtonCancel = gtk_button_new_with_label("Cancel");
-	g_signal_connect_swapped(pButtonCancel, "clicked", G_CALLBACK(gtk_widget_destroy), SndWindow);
-	gtk_container_add(GTK_CONTAINER(v2box), pButtonCancel);
-
-	/* Show 2nd window */
-	gtk_widget_show_all(SndWindow);
-
 	/* alertdialog + refresh everything */
 	alertDialog("FINISHED !\n");
 	gtk_widget_destroy(SndWindow);
@@ -384,21 +338,20 @@ DWORD WINAPI delta(void *p_data) {
 			fichier_d = fopen(data[2], "wb+");
 			size_s1 = file_size(fichier_s1);
 			size_s2 = file_size(fichier_s2);
-			/*fwprintf(fichier_d, L"ggwp %d\n", max_sep);
-			fclose(fichier_d);*/
+			if((elems_tab1 = calloc(size_s1, sizeof(elems_str))) == NULL)
+				exit(1);
+			if((elems_tab2 = calloc(size_s2, sizeof(elems_str))) == NULL)
+				exit(1);
 			max = (gdouble)(size_s1+size_s2);
-			elems_tab1 = calloc(size_s1, sizeof(elems_str));
-			elems_tab2 = calloc(size_s2, sizeof(elems_str));
-			//functions
+			//storing elems
 			store_elems(fichier_s1, elems_tab1);
 			is2nd = TRUE;
 			store_elems(fichier_s2, elems_tab2);
+			//comparing elems
 			compare_elems(fichier_d, elems_tab1, elems_tab2);
-
-			if(elems_tab1 != NULL)
-				free(elems_tab1);
-			if(elems_tab2 != NULL)
-				free(elems_tab2);
+			free_str(&elems_tab1, size_s1);
+			free_str(&elems_tab2, size_s2);
+			//close files
 			result = -1;
 			fclose(fichier_d);
 		}
@@ -415,6 +368,7 @@ DWORD WINAPI delta(void *p_data) {
 		result = 4;
 
 	isEnded = TRUE;
+
 	(void) p_data;
 	return 0;
 }
@@ -428,6 +382,14 @@ gboolean fill() {
 		return TRUE;
 	else
 		return FALSE;
+}
+
+void free_str(elems_str **tab, int fsize) {
+	int i;
+
+	for(i=0; i<fsize; i++)
+		free((*tab)[i].rest);
+	free(*tab);
 }
 
 void refresh_all() {
