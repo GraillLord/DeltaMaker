@@ -59,7 +59,7 @@ const char* verify_filename_ext(const char* file1, const char* file2, const char
 		return file2;
 	else if(strcmp(file3, "csv") != 0)
 		return file3;
-	return "true";
+	return "TRUE";
 }
 
 void chopN(wchar_t *str, size_t n) {
@@ -92,7 +92,7 @@ void store_elems(FILE* fichier, elems_str* tab) {
 	while((c = fgetwc(fichier)) != WEOF) {
 		if(is1stLine) {
 			if(c == 10) {
-				is1stLine = false;
+				is1stLine = FALSE;
 				i = 0;
 			}
 			else if(!is2nd) {
@@ -148,13 +148,13 @@ void compare_elems(FILE* fichier_a, elems_str* tab1, elems_str* tab2) {
 	}
 	fwprintf(fichier_a, L"%s%cEVT\n", title, sep);
 	for(i=0; i<size_s1; i++, k++) {
-		isSame = false;
+		isSame = FALSE;
 		for(j=0; j<size_s2; j++) {
 			if(wcscmp(tab1[i].prm, tab2[j].prm) == 0)
 				isSame = TRUE;
 		}
 		if(!isSame)
-			fwprintf(fichier_a, L"%s\u25B2%s\u25B2R\n", tab1[i].prm, tab1[i].rest);
+			fwprintf(fichier_a, L"%s\u25B2%s\u25B2E\n", tab1[i].prm, tab1[i].rest);
 		dfrac = (gdouble)k;
 	}
 	for(i=0; i<size_s2; i++, k++) {
@@ -257,6 +257,11 @@ void *secondWindow() {
 	DWORD exitthread;
 	char err[80];
 
+	/* disable UI items */
+	gtk_widget_set_sensitive(pButtonF1, FALSE);
+	gtk_widget_set_sensitive(pButtonF2, FALSE);
+	gtk_widget_set_sensitive(entries, FALSE);
+	
 	/* Use the created fill function every 500 milliseconds */
 	g_timeout_add(500, fill, GTK_PROGRESS_BAR(pProgress));
 
@@ -303,9 +308,14 @@ void *secondWindow() {
 		return NULL;
 	}
 
-	/* alertdialog + refresh everything */
+	/* show finished alertdialog */
 	alertDialog("FINISHED !\n");
 	gtk_widget_destroy(SndWindow);
+
+	/*refresh everything once alertdialog is terminated */
+	gtk_widget_set_sensitive(pButtonF1, TRUE);
+	gtk_widget_set_sensitive(pButtonF2, TRUE);
+	gtk_widget_set_sensitive(entries, TRUE);
 	refresh_all();
 
 	return NULL;
@@ -331,7 +341,7 @@ DWORD WINAPI delta(void *p_data) {
 		}
 	}
 	const char *verify_ext = verify_filename_ext(file[0], file[1], file[2]);
-	if(strcmp(verify_ext, "true") == 0) {
+	if(strcmp(verify_ext, "TRUE") == 0) {
 		fichier_s1 = fopen(data[0], "r");
 		fichier_s2 = fopen(data[1], "r");
 		if(fichier_s1 != NULL && fichier_s2 != NULL) {
@@ -374,8 +384,14 @@ DWORD WINAPI delta(void *p_data) {
 }
 
 gboolean fill() {
+	gchar buffer[10];
+	int percent = (int)((dfrac/max)*100);
+	itoa(percent, buffer, 10);
+	strcat(buffer, "%");
+
 	/*Fill in the given fraction of the bar. Has to be between 0.0-1.0 inclusive*/
 	gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(pProgress), dfrac/max);
+	gtk_progress_bar_set_text(GTK_PROGRESS_BAR(pProgress), buffer);
 
   	/*Ensures that the fraction stays below 1.0*/
 	if(dfrac/max < 1.0) 
